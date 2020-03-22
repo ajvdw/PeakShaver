@@ -1,20 +1,23 @@
-#include <PID_v1.h>
+#include <PID_v1.h>  //https://github.com/br3ttb/Arduino-PID-Library
 #include <AltSoftSerial.h>
 
-#define OUTPUT_MIN 6
-#define OUTPUT_MAX 16
-#define KP .5
-#define KI .5
-#define KD .5
+#define OUTPUT_MIN 6.0  // Amp
+#define OUTPUT_MAX 16.0 // Amp
+#define SETPOINT   7.5  // kWh
 
-double powerMeter;          // Input Nett Power measurement
-double powerSetpoint=6.0;   // Setpoint Nett Power in kW
-double outputCurrent=6;     // Ouput Charging current in A
+#define KP  0.7
+#define KI  0.2
+#define KD  0.05
 
-//input/output variables passed by reference, so they are updated automatically
-PID myPID(&powerMeter, &outputCurrent, &powerSetpoint, KP, KI, KD, DIRECT);
+double inputPower;              // Input Nett Power measurement
+double setpointPower=SETPOINT;  // Setpoint Nett Power in kW
+double outputCurrent=OUTPUT_MIN;// Ouput Charging current in A
+
+PID myPID(&inputPower, &outputCurrent, &setpointPower, KP, KI, KD, DIRECT, P_ON_E );
 
 AltSoftSerial altSerial; // D9=TX, D8=RX, D10=dir
+
+char hex[] = "0123456789ABCDEF";
 
 uint8_t getCheckSum8Xor(char *string)
 {
@@ -104,44 +107,55 @@ bool handleDSMR( void )
       }
 
       // Import power kW
-      if( parseDouble("1-0:1.7.0",buffer,1,&Import) && (Import > 0 ) ) powerMeter = (Import-Export);
+      if( parseDouble("1-0:1.7.0",buffer,1,&Import) && (Import > 0 ) ) inputPower = (Import-Export);
       // Export power kW
-      if( parseDouble("1-0:2.7.0",buffer,1,&Export) && (Export > 0 ) ) powerMeter = (Import-Export);
+      if( parseDouble("1-0:2.7.0",buffer,1,&Export) && (Export > 0 ) ) inputPower = (Import-Export);
           
       bufpos=0; // Go to start of buffer
     }
   } 
-  return result; // Return true if a second has passed
+  return result; // Return true if one second has passed
 } 
 
+
+void sendEVBSendMessage( char *msg )
+{
+  uint8_t csm, csx;
+ 
+  // Calc checksum
+  csm = getCheckSumMod256( msg );
+  csx = getCheckSum8Xor( msg );
+
+  digitalWrite( 10, HIGH ); // TX mode 
+  // StartOfMessage
+  altSerial.print( char(2) );  
+  // Actual Message
+  altSerial.print( msg );  
+  // Add checksum to message
+  altSerial.print( char(hex[(csm >> 4) & 15]) );  
+  altSerial.print( char(hex[(csm >> 0) & 15]) );  
+  altSerial.print( char(hex[(csx >> 4) & 15]) );  
+  altSerial.print( char(hex[(csx >> 0) & 15]) );  
+  // EndOfMessage
+  altSerial.print( char(3) ); altSerial.flush();
+  digitalWrite( 10, LOW ); // RX mode
+
+Serial.print( "TX: " ); Serial.println( msg );
+}
 
 void sendEVBmaxCurrent( float amp )
 {
   char buf[64];
-  int  ta = round(10.0 * amp);
-  uint8_t csm, csx;
-  char hex[] = "0123456789ABCDEF";
+  int  ta = round(10*amp);
 
-  // Template command
-  strcpy( buf, "<SECRET>" );
+  // Set Current command
+  strcpy( buf, "80A06900xx00xx00xx" );
 
   // Set current values
   buf[8]=buf[12]=buf[16]=hex[(ta >> 4) & 15];
   buf[9]=buf[13]=buf[17]=hex[(ta >> 0) & 15];
-  // Calc checksum
-  csm = getCheckSumMod256( buf );
-  csx = getCheckSum8Xor( buf );
-  // Add checksum to buffer
-  buf[34]=hex[(csm >> 4) & 15];  buf[35]=hex[(csm >> 0) & 15];
-  buf[36]=hex[(csx >> 4) & 15];  buf[37]=hex[(csx >> 0) & 15];
-  // EndOfString
-  buf[38]=0;
 
-  digitalWrite( 10, HIGH ); // TX mode 
-  altSerial.print( char(2) );  altSerial.print( buf );  altSerial.print( char(3) ); altSerial.flush();
-  digitalWrite( 10, LOW ); // RX mode
-
-  //Serial.print( "TX: " ); Serial.println( buf );
+  sendEVBSendMessage( buf );
 }
 
 void setup() 
@@ -154,8 +168,12 @@ void setup()
   // RX mode
   pinMode( 10, OUTPUT ); 
   digitalWrite( 10, LOW ); 
-
+  
+  myPID.SetOutputLimits(OUTPUT_MIN, OUTPUT_MAX);
+  myPID.SetSampleTime(1000);
   myPID.SetMode(AUTOMATIC);
+  
+  sendEVBSendConnecterHardReset();
 }
 
 void loop() {
@@ -168,12 +186,8 @@ void loop() {
 
   if( handleDSMR() ) 
   {    
-    if( outputCurrent < OUTPUT_MIN) outputCurrent = OUTPUT_MIN;
-    if( outputCurrent > OUTPUT_MAX) outputCurrent = OUTPUT_MAX;
-    
-    //Serial.print(": "); Serial.print( outputCurrent ); Serial.print( "A "); Serial.print( powerMeter ); Serial.println( "kW ");
+Serial.print(": "); Serial.print( outputCurrent ); Serial.print( "A "); Serial.print( inputPower ); Serial.println( "kW ");
     sendEVBmaxCurrent( outputCurrent );  
-
   }
 
   
@@ -192,7 +206,7 @@ void loop() {
       // Message End
       reading=false;
       cmdbuf[lenbuf]=0;
-      //Serial.print( "RX: " ); Serial.println( cmdbuf );  
+Serial.print( "RX: " ); Serial.println( cmdbuf );  
       lenbuf=0;     
     }
     else if( reading && c >= 48 && c<= 70 ) 

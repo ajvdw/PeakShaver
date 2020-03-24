@@ -10644,7 +10644,7 @@ part number 2062-2P from STA</description>
 <sheets>
 <sheet>
 <plain>
-<text x="-154.94" y="93.98" size="6.4516" layer="91">PeakShaver v0.9</text>
+<text x="-149.86" y="205.74" size="3.81" layer="91">PeakShaver v0.9</text>
 </plain>
 <instances>
 <instance part="ARDUINO" gate="G$1" x="-22.86" y="116.84" smashed="yes">

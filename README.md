@@ -1,3 +1,3 @@
 # PeakShaver
 
-Limit charging current for EVBox Homeline using Smart Meter Data
+Limit charging current for EV Charger using Smart Meter Data

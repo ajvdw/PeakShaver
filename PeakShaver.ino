@@ -3,10 +3,14 @@
 
 #define OUTPUT_MIN 6.0      // Min Charging Amp
 #define OUTPUT_MAX 16.0     // Max Charging Amp
+
 #define SETPOINT   5.75     // kW
-#define OVERSHOOT  6.0      // kW
-#define PAUSE      1800     // Sec
+#define OVERSHOOT  0.25     // kW
+
+#define PAUSE      600      // Sec
 #define SAMPLES    300      // Number of samples  
+
+int HourOfDay;
 
 double inputPower;              // Input Nett Power measurement
 double setpointPower=SETPOINT;  // Setpoint Power in kW
@@ -77,6 +81,7 @@ bool receiveDSMR( void ) {
       if( parseTime("0-0:1.0.0",buffer, &timepart) ) {
         if( timepart != prevtimepart ) result = true;
         prevtimepart = timepart;
+        HourOfDay = (timepart / 10000) % 100;
       }
 
       // Capture Import power kW
@@ -162,15 +167,24 @@ void loop() {
     { // Calculate moving average
       average=(average * (SAMPLES-1) + inputPower )/ SAMPLES;
       // Minimum charging current can lead to overshoot 
-      if( average > OVERSHOOT ){
+      if( average > SETPOINT+OVERSHOOT ){
         sendEVBmaxCurrent( 0 );  // Stop charging for a while
         countdown = PAUSE;
       }
     }
     if( countdown )
+    {
+      Serial.print( "Waiting: " ); 
+      Serial.println(countdown);
       countdown--; // Let time pass by 
+    }
     else
-      sendEVBmaxCurrent( outputCurrent ); // Set charging current
+    {
+      if( HourOfDay > 9 && HourOfDay < 18 ) // Solar Charging
+        sendEVBmaxCurrent( OUTPUT_MIN ); //
+      else
+        sendEVBmaxCurrent( outputCurrent ); // Set charging current
+    }
   }
 
   // Capture EVBox data and just print it

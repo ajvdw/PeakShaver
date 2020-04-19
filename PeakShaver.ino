@@ -12,6 +12,12 @@
 
 int HourOfDay;
 
+int Mode = 2;
+// Mode 0: No Charging 0A (RED)
+// Mode 1: Minimum Charging current 6A (ORANGE)
+// Mode 2: Optimized Charging (GREEN)
+// Mode 3: Maximum Charging 16A (BLUE)
+
 double inputPower;              // Input Nett Power measurement
 double setpointPower=SETPOINT;  // Setpoint Power in kW
 double outputCurrent=OUTPUT_MIN;// Ouput Charging current in A
@@ -143,6 +149,9 @@ void setup() {
   myPID.SetMode(AUTOMATIC);
   
   Serial.println("PeakShaving");
+
+  Mode = 2;
+
 }
 
 void loop() {
@@ -180,8 +189,8 @@ void loop() {
     }
     else
     {
-      if( HourOfDay > 9 && HourOfDay < 18 ) // Solar Charging
-        sendEVBmaxCurrent( OUTPUT_MIN ); //
+      if( HourOfDay > 9 && HourOfDay < 18 ) // Solar Charging 
+        sendEVBmaxCurrent( OUTPUT_MIN ); // Maxium use of the sum
       else
         sendEVBmaxCurrent( outputCurrent ); // Set charging current
     }

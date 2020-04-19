@@ -144,7 +144,8 @@
                     "filename_format": "%N.GBO",
                     "layers": [
                         22,
-                        26
+                        26,
+                        28
                     ],
                     "milling": false,
                     "name": "Bottom Silkscreen",
@@ -262,7 +263,7 @@
             ]
         }
     ],
-    "timestamp": "2020-03-18T12:15:47",
+    "timestamp": "2020-04-19T08:43:11",
     "type": "EAGLE CAM job",
     "units": "metric",
     "version": "8.6.0"

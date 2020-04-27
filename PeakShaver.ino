@@ -13,6 +13,7 @@
 int HourOfDay;
 
 int Mode = 2;
+
 // Mode 0: No Charging 0A (RED)
 // Mode 1: Minimum Charging current 6A (ORANGE)
 // Mode 2: Optimized Charging (GREEN)
@@ -20,7 +21,7 @@ int Mode = 2;
 
 double inputPower;              // Input Nett Power measurement
 double setpointPower=SETPOINT;  // Setpoint Power in kW
-double outputCurrent=OUTPUT_MIN;// Ouput Charging current in A
+double outputCurrent=OUTPUT_MIN;// Output Charging current in A
 
 #define KP  0.7
 #define KI  0.1
